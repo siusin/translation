@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang=en>
+  <head>
+    <title>HTML：下一步是什么？</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://www.w3.org/StyleSheets/TR/base">
+    <style>
+    body {
+      max-width: 60em;
+      margin: auto;
+      color: rgb(72, 70, 68);
+    }
+    h1, h2 {
+      font-size: 1.2em;
+      color: #000;
+    }
+    code {
+      background-color: #eee;
+    }
+    a, a:link, a:hover, a:visited {
+      color: #8a1e1b;
+    }
+    </style>
+  </head>
+  <body>
+    <header>
+    <h1>不带假设地调整</h1>
+
+    <dl>
+      <dt>原文：</dt><dd><a href="https://blog.yoav.ws/adapting_without_assumptions/">https://blog.yoav.ws/adapting_without_assumptions/</a></dd>
+      <dt>作者：</dt><dd>Yoav Weiss</dd>
+      <dt>发表于：</dt><dd>Sep 28, 2015</dd>
+    </dl>
+  </header>
+
+    <p>最近，有很多关于 <a href="http://w3c.github.io/netinfo/">Network Info API</a> 的讨论。
+    </p>
+
+    <p><a href="https://twitter.com/Paul_Kinlan">Paul Kinlan </a>发表了一篇<a href="https://paul.kinlan.me/using-service-worker-server-side-adaption-based-on-network-type/">文章</a>探讨让 Service Worker 和 Network Info API 合作发送网络信息到服务器从而让服务器根据网络信息调整响应。Blink 渲染引擎也有<a href="https://groups.google.com/a/chromium.org/d/msg/blink-dev/tU_Hqqytx8g/BeB5MsxbAwAJ">意向实现</a> <code>downlinkMax</code> 这个属性。</p>
+
+    <p>考虑到我对这个问题有相当多的想法™，而 <a href="https://twitter.com/yoavweiss/status/640903954109480960">Twitter</a> 和<a href="https://groups.google.com/a/chromium.org/d/msg/blink-dev/tU_Hqqytx8g/xok7kFumAwAJ">邮件列表</a>并不总是合适的平台，我把我所想到的写在这里。</p>
+
+    <p>这是一篇相当长的文章，如果没有时间通篇读完，我想表达的是：
+    </p>
+    <ul>
+      <li>现有的NetInfo API 并没有提供有用的信息；</li>
+      <li>我们应该完善现有的 API （<a href="#proposal">提案</a>）；</li>
+      <li>我们应该从用户使用角度全面优化它的内容能力，超越只考虑网络条件限制的现有设计。</li>
+    </ul>
+
+    <h2>现有的 NetInfo API 并没有揭示开发者的所需</h2>
+
+    <p>现有的 API 是围绕以下属性来搭建的：</p>
+
+    <ul>
+      <li><code>type</code> —— 说明网络的“类型”，以相当粗糙的粒度，如“蜂窝网络” vs. "wifi".</li>
+      <li><code>downlinkMax</code> —— 基于当下的 first-hop 技术，说明最大下行速度或其估算数字。它有稍微好点的粒度，但有相当的双重性，即开发者不清楚他们所获得的值是基于<a href="https://w3c.github.io/netinfo/#max-downlink-table">提案</a>）一串预定义值还是根据更现实相关的带宽所估算出来的；</li>
+      <li><code>onchange</code> —— 表明网络发生变化的一个 event handler，从而让 app 做出相应的变化行为。</li>
+    </ul>
+
+    <p>上述设计的问题在于它几乎没有给 Web 开发者提供有用可操作的数据，除非他们已经作出大量（然而经常并非如此）的关于这些信息对他们实际关心的东西（这些，通常情况下，并非此API所揭示的数据）意味着什么的假设。</p>
+
+    <p>如果你进一步研究一下 <code>downlinkMax</code> 表格，你会发现通过它你所能获得的信息顶多算是含糊的。如果你的用户是在一个 Edge 网络，你可能被导向认为他们的可用下载速度是 384 kbs。这些网络很有可能并没有它们所声称的带宽量，但你可以通过这些信息判断用户处于一个不太好的网络环境，并根据情况变换你所返回的资源。</p>
+
+    <p>但，如果他们是出于 WiFi-tethering 的 2G 手机呢？在这种情况下，你会被误导认为连接类型是 "wifi" 并且速度可达 11 Mbps。并不差啊。</p>
+    
+    <p>然而，用户在后者的场景里可能处于比前者更糟糕的网络条件，然后开发者无从而知。</p>
+
+    <p>还有很多其它场景如果只看 <code>downlinkMax</code> 你会被误导得到错误的结论。例如，假设你的用户处于一个极度有损的 WiFi 网络（即：“旅馆或会场的 WiFi”），他们的有效带宽非常低。或者，他们在一个 HSDPA 网络，理论上可达 14.3 Mbps，但实际上，他们通过一个cell与上千人共享网络，并且都在尝试下载一个跟猫相关的游戏，因为他们都在等候巴士或火车或飞机，即这个cell的带宽是微弱地平均分配给所有用户，并且这个cell的回程网络（它正在从 landline 互联网 fetch 那些猫）已经饱和。</p>
+
+    <p>实际上， <code>downlinkMax</code> 的 <i>唯一</i>有用的场景是“用户正处于 Edge 网络”的场景。对其它的每一个场景，你并不走运：糟糕或受限的 WiFi，覆盖很差的3G， 糟糕的回程网络，等等，在这个 API 提供的信息里都会把自己表现为相当好的网络。这意味着我们可以用一个 <code>isUserOnEdge</code> 布尔变量替代 <code>downlinkMax</code>。</p>
+
+    <p>即使我们细看 <code>downlinkMax</code> 通过带宽估算可能做到的某些优化，根据现有的规范：</p>
+  </body>
+</html>
