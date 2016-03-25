@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang=en>
   <head>
-    <title>HTML：下一步是什么？</title>
+    <title>无需假定地适用</title>
     <meta charset="utf-8">
     <link rel="stylesheet" href="https://www.w3.org/StyleSheets/TR/base">
     <style>
@@ -25,7 +25,7 @@
   </head>
   <body>
     <header>
-    <h1>不带假设地调整</h1>
+    <h1>无需假定地适用</h1>
 
     <dl>
       <dt>原文：</dt><dd><a href="https://blog.yoav.ws/adapting_without_assumptions/">https://blog.yoav.ws/adapting_without_assumptions/</a></dd>
@@ -37,7 +37,7 @@
     <p>最近，有很多关于 <a href="http://w3c.github.io/netinfo/">Network Info API</a> 的讨论。
     </p>
 
-    <p><a href="https://twitter.com/Paul_Kinlan">Paul Kinlan </a>发表了一篇<a href="https://paul.kinlan.me/using-service-worker-server-side-adaption-based-on-network-type/">文章</a>探讨让 Service Worker 和 Network Info API 合作发送网络信息到服务器从而让服务器根据网络信息调整响应。Blink 渲染引擎也有<a href="https://groups.google.com/a/chromium.org/d/msg/blink-dev/tU_Hqqytx8g/BeB5MsxbAwAJ">意向实现</a> <code>downlinkMax</code> 这个属性。</p>
+    <p><a href="https://twitter.com/Paul_Kinlan">Paul Kinlan </a>发表了一篇<a href="https://paul.kinlan.me/using-service-worker-server-side-adaption-based-on-network-type/">文章</a>探讨让 Service Worker 和 Network Info API 协作，发送网络信息到服务器并让服务器根据网络信息调整响应。Blink 渲染引擎也有<a href="https://groups.google.com/a/chromium.org/d/msg/blink-dev/tU_Hqqytx8g/BeB5MsxbAwAJ">意向实现</a> <code>downlinkMax</code> 这个属性。</p>
 
     <p>考虑到我对这个问题有相当多的想法™，而 <a href="https://twitter.com/yoavweiss/status/640903954109480960">Twitter</a> 和<a href="https://groups.google.com/a/chromium.org/d/msg/blink-dev/tU_Hqqytx8g/xok7kFumAwAJ">邮件列表</a>并不总是合适的平台，我把我所想到的写在这里。</p>
 
@@ -55,22 +55,72 @@
 
     <ul>
       <li><code>type</code> —— 说明网络的“类型”，以相当粗糙的粒度，如“蜂窝网络” vs. "wifi".</li>
-      <li><code>downlinkMax</code> —— 基于当下的 first-hop 技术，说明最大下行速度或其估算数字。它有稍微好点的粒度，但有相当的双重性，即开发者不清楚他们所获得的值是基于<a href="https://w3c.github.io/netinfo/#max-downlink-table">提案</a>）一串预定义值还是根据更现实相关的带宽所估算出来的；</li>
+      <li><code>downlinkMax</code> —— 基于当下的 first-hop（第一跳） 技术，说明最大下行速度或其估算数字。它有稍微好点的粒度，但有相当的双重性，即开发者不清楚他们所获得的值是基于<a href="https://w3c.github.io/netinfo/#max-downlink-table">提案</a>）一串预定义值还是根据更现实相关的带宽所估算出来的；</li>
       <li><code>onchange</code> —— 表明网络发生变化的一个 event handler，从而让 app 做出相应的变化行为。</li>
     </ul>
 
     <p>上述设计的问题在于它几乎没有给 Web 开发者提供有用可操作的数据，除非他们已经作出大量（然而经常并非如此）的关于这些信息对他们实际关心的东西（这些，通常情况下，并非此API所揭示的数据）意味着什么的假设。</p>
 
-    <p>如果你进一步研究一下 <code>downlinkMax</code> 表格，你会发现通过它你所能获得的信息顶多算是含糊的。如果你的用户是在一个 Edge 网络，你可能被导向认为他们的可用下载速度是 384 kbs。这些网络很有可能并没有它们所声称的带宽量，但你可以通过这些信息判断用户处于一个不太好的网络环境，并根据情况变换你所返回的资源。</p>
+    <p>如果你进一步研究一下 <code>downlinkMax</code> 表格，你会发现通过它你所能获得的信息顶多算是含糊的。如果你的用户是在一个 Edge （节点连接）网络，你可能被导向认为他们的可用下载速度是 384 kbs。这些网络很有可能并没有它们所声称的带宽量，但你可以通过这些信息判断用户处于一个不太好的网络环境，并根据情况变换你所返回的资源。</p>
 
-    <p>但，如果他们是出于 WiFi-tethering 的 2G 手机呢？在这种情况下，你会被误导认为连接类型是 "wifi" 并且速度可达 11 Mbps。并不差啊。</p>
+    <p>但，如果他们是出于 WiFi-tethering （热点共享） 的 2G 手机呢？在这种情况下，你会被误导认为连接类型是 "wifi" 并且速度可达 11 Mbps。并不差啊。</p>
     
-    <p>然而，用户在后者的场景里可能处于比前者更糟糕的网络条件，然后开发者无从而知。</p>
+    <p>然而，用户在后者的场景里可能处于比前者更糟糕的网络条件，开发者却无从而知。</p>
 
-    <p>还有很多其它场景如果只看 <code>downlinkMax</code> 你会被误导得到错误的结论。例如，假设你的用户处于一个极度有损的 WiFi 网络（即：“旅馆或会场的 WiFi”），他们的有效带宽非常低。或者，他们在一个 HSDPA 网络，理论上可达 14.3 Mbps，但实际上，他们通过一个cell与上千人共享网络，并且都在尝试下载一个跟猫相关的游戏，因为他们都在等候巴士或火车或飞机，即这个cell的带宽是微弱地平均分配给所有用户，并且这个cell的回程网络（它正在从 landline 互联网 fetch 那些猫）已经饱和。</p>
+    <p>还有很多其它场景如果只看 <code>downlinkMax</code> 你会被误导得到错误的结论。例如，假设你的用户处于一个极度有损的 WiFi 网络（即：“旅馆或会场的 WiFi”），他们的有效带宽非常低。或者，他们在一个 HSDPA 网络，理论上可达 14.3 Mbps，但实际上，他们通过一个cell与上千人共享网络，并且都在尝试下载一个跟猫相关的游戏，因为他们都在等候巴士或火车或飞机，即这个cell的带宽是微弱地平均分配给所有用户，并且这个cell的回载网络（它正在从 landline 互联网 fetch 那些猫）已经饱和。</p>
 
-    <p>实际上， <code>downlinkMax</code> 的 <i>唯一</i>有用的场景是“用户正处于 Edge 网络”的场景。对其它的每一个场景，你并不走运：糟糕或受限的 WiFi，覆盖很差的3G， 糟糕的回程网络，等等，在这个 API 提供的信息里都会把自己表现为相当好的网络。这意味着我们可以用一个 <code>isUserOnEdge</code> 布尔变量替代 <code>downlinkMax</code>。</p>
+    <p>实际上， <code>downlinkMax</code> 的 <i>唯一</i>有用的场景是“用户正处于 Edge 网络”的场景。对其它的每一个场景，你并不走运：糟糕或受限的 WiFi，覆盖很差的3G， 糟糕的回载网络，等等，在这个 API 提供的信息里都会把自己表现为相当好的网络。这意味着我们可以用一个 <code>isUserOnEdge</code> 布尔变量替代 <code>downlinkMax</code>。</p>
 
     <p>即使我们细看 <code>downlinkMax</code> 通过带宽估算可能做到的某些优化，根据现有的规范：</p>
+    <ul>
+      <li>这可能是第一个 hop（跳）的估算值，也就意味着它无法把回载堵塞、共享网络以及其它类似场景考虑在内。</li>
+      <li>开发者无法分辨第一个 hop（跳）带宽估算和永远无法被到达的理论最大带宽。</li>
+    </ul>
+    <p>这些都让我们相信 <code>downlinkMax</code> 开发者实际需要的信息，并且让我们担心如果我们公开这些信息的话会被开发者滥用（因为可能不了解更好的网络信息）。</p>
+
+    <h2>那么，开发者需要什么呢？</h2>
+    <p>最普遍的用例是开发者努力捕获针对用户条件的内容自适应的数据。我想表明主要的用例应该是给可以马上处理数据的设备提供富内容，给因某些限制无法处理富内容的设备提供优雅快速的用户体验。</p>
+
+    <p>我所听到大家提起的一些特定用例：</p>
+    <ul>
+      <li>
+        <p>在网络条件很差时候下载较小的或其它的资源。</p>
+        <ul>
+          <li>这是一个最常被提起的用例。虽然部分“更小的资源”可以通过 <code>srcset</code> 和 progressive video loading 来实现，这通常还意味着提供物理上更小的资源，那些开发者想要的只是更严格的压缩，虽然要付出质量的代价，但还是比提供更小的资源或缩小资源好。还有可能是我们希望根据网络条件提供不一样的资源。（例如，用视频广告替代静态广告）</li>
+        </ul>
+      </li>
+      <li>
+        <p>在低端设备无法载入的情况下载更小的或其它的资源。</p>
+        <ul>
+          <li>那些只有很低的内存和处理能力低端设备并不总能处理渲染出一整页的图片、视频和脚本的网页载入。在某些情况下开发者需要检测此条件并发送一个更简约的版本。</li>
+          <li>想了解这个用例的更多细节，可参考 <a href="https://twitter.com/tkadlec">Tim Kadlec</a> 的优秀的 <a href="https://www.youtube.com/watch?v=kylciFbrwcY">“Reaching everyone, fast”</a> 讲座。</li>
+        </ul>
+      </li>
+      <li>
+        <p>避免同步/下载大块的数据。</p>
+        <ul>
+          <li>有些 Web apps 需要同步或下载非常多的数据，这可能是高消耗的，花费电量或占用设备存储空间，具体视用户的条件和设备而定。开发者需要一个途径去了解用户是否会因为进行这样的高消耗操作而不爽。</li>
+        </ul>
+      </li>
+      <li>
+        <p>在大量的下载前警告用户。</p>
+        <ul>
+          <li>跟上一个用例有点关系，提供一个标准化的方式让用户了解大量的数据下载即将发生并且允许用户避免此操作，才能在将来让浏览器处理这样的“许可”并且用来避免惹怒用户。</li>
+        </ul>
+      </li>
+    </ul>
+    <p>现在，如果我们把这些用例纳入考量，有哪些信息是我们应该公开给开发者让他们成功解决这些用例呢？</p>
+    <p>我认为这个清单应该包括：</p>
+    <ul>
+      <li>实际的网络条件。</li>
+      <li>用户偏好——用户偏向更快的信息传输还是更大量花哨的？</li>
+      <li>设备能力——设备能否处理我正发送给它的资源？还是会导致它崩溃？</li>
+      <li>电池余量——如果电量所剩不多了，也许用户并不需要花哨的动画，而是只需要到达访问他们所需要的地址？</li>
+      <li>流量的花费模式（和用户是否计较流量花费）。</li>
+    </ul>
+    <p>让我们逐个细看。</p>
+    <p></p>
+    <p></p>
+    <p></p>
   </body>
 </html>
